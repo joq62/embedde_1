@@ -117,6 +117,13 @@ handle_call({delete_pod,Node,PodId}, _From, State) ->
     Reply=rpc:call(node(),controller,delete_pod,[Node,PodId],15000),
     {reply, Reply, State};
 
+handle_call({create_container,Pod,Service}, _From, State) ->
+    Reply=rpc:call(node(),controller,create_container,[Pod,Service],15000),
+    {reply, Reply, State};
+
+handle_call({delete_pod,Node,PodId}, _From, State) ->
+    Reply=rpc:call(node(),controller,delete_pod,[Node,PodId],15000),
+    {reply, Reply, State};
 
 handle_call({stop}, _From, State) ->
     {stop, normal, shutdown_ok, State};

@@ -60,6 +60,21 @@ t5_get_pods_test()->
     []=controller_service:get_pods(),
     ok.
 
+t6_create_container_test()->
+    {ok,'service_x@asus'}=controller_service:create_pod(?W1,"service_x"),
+    pong=net_adm:ping('service_x@asus'),
+    PodId="service_x",
+    CpCmd="cp -r "++"brd_ctrl "++PodId,
+    rpc:call('service_x@asus',os,cmd,[CpCmd],5000),
+    true=rpc:call('service_x@asus',filelib,is_dir,[filename:join(PodId,"brd_ctrl")],5000),
+    ok.
+
+t7_delete_container_test()->
+    
+    {ok,stopped}=controller_service:delete_pod(?W1,"service_x"),
+    ok.
+
+
 stop_test()->
     controller_service:stop(),
     do_kill().

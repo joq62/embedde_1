@@ -46,7 +46,13 @@ delete_pod(Node,PodId)->
 			error->
 			    {error,[couldnt_stop_pod,PodId,?MODULE,?LINE]};
 			ok->
-			    {ok,stopped}
+			    RmCmd="rm -rf "++PodId,
+			    case rpc:call(Node,os,cmd,[RmCmd],5000) of
+				[]->
+				    {ok,stopped};
+				Err ->
+				    {error,[unknown_error,Err,?MODULE,?LINE]}
+			    end
 		    end;
 	       {badrpc,Err}->
 		   {error,[badrpc,Err,?MODULE,?LINE]};
@@ -229,38 +235,6 @@ get_nodes([Node|T],Acc) ->
 %% --------------------------------------------------------------------
 
 %% --------------------------------------------------------------------
-%% Function:create_worker_node(Service,BoardNode)
-%% Description:
-%% Returns:{ok,WorkerNode}|{error,Err}
-%% --------------------------------------------------------------------
-create_worker_node(Service,BoardNode)->
-    case net_adm:ping('1_adder@asus') of
-	pang->
-	    {ok,WorkerNodeName}={ok,integer_to_list(1)};
-	pong->
-	    {ok,WorkerNodeName}={ok,integer_to_list(2)}
-    end,
-    {ok,HostName}=inet:gethostname(),
-    UniqueNodeName=WorkerNodeName++"_"++Service,
-    WorkerNode=list_to_atom(UniqueNodeName++"@"++HostName),
-    Result=case rpc:call(BoardNode,os,cmd,["erl -pa "++Service++"/* "++"-sname "++UniqueNodeName++" -detached"]) of
-	       []->
-		   timer:sleep(1000),
-		   case net_adm:ping(WorkerNode) of
-		       pong->
-			   {ok,WorkerNode};
-		       pang->
-			   {error,nodedown}
-		   end;
-	       {badrpc,nodedown} ->
-		   {error,nodedown};
-	       Err->
-		   {error,Err}
-	   end,
-    Result.
-
-
-%% --------------------------------------------------------------------
 %% Function:clone_compile(Service,BoardNode)
 %% Description:
 %% Returns: ok|{erro,compile_info}|{error,nodedown}
@@ -291,10 +265,10 @@ check_del_service_dir(Service,BoardNode)->
 %% Description:
 %% Returns: ok|{erro,compile_info}|{error,nodedown}
 %% --------------------------------------------------------------------
-clone_compile(Service,BoardNode)->
-    Result=case clone(Service,BoardNode) of
+clone_compile(Pod,Service)->
+    Result=case clone(Service,Pod) of
 	       ok->
-		   compile_erl(filename:join(Service,"src"),filename:join(Service,"ebin"),BoardNode);
+		   compile_erl(filename:join(Service,"src"),filename:join(Service,"ebin"),Pod);
 	       {badrpc,nodedown}->
 		   {error,nodedown};
 	       Err->
