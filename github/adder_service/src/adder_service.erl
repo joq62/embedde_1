@@ -4,47 +4,33 @@
 %%%  
 %%% Created : 10 dec 2012
 %%% -------------------------------------------------------------------
--module(controller_service).
+-module(adder_service). 
 
 -behaviour(gen_server).
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
 
-
 %% --------------------------------------------------------------------
- 
+
 %% --------------------------------------------------------------------
 %% Key Data structures
 %% 
 %% --------------------------------------------------------------------
 -record(state,{}).
 
-% {{service,Service},{pid,PidService},{node_board,NB},{node_service,NS}}
-
-	  
 %% --------------------------------------------------------------------
 
-%% ====================================================================
-%% External functions
-%% ====================================================================
 
 
-%% user interface
--export([
-	 
-	]).
 
-%% intermodule 
--export([get_nodes/0,
-	 create_pod/2,delete_pod/2,get_pods/0,
-	 create_container/3,delete_container/3
+-export([add/2
 	]).
 
 -export([start/0,
 	 stop/0
-	 ]).
-%% internal 
+	]).
+
 %% gen_server callbacks
 -export([init/1, handle_call/3,handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -55,27 +41,19 @@
 
 %% Asynchrounus Signals
 
-%% Gen server function
+
+
+%% Gen server functions
 
 start()-> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 stop()-> gen_server:call(?MODULE, {stop},infinity).
 
 
+
 %%-----------------------------------------------------------------------
-get_nodes()->
-    gen_server:call(?MODULE, {get_nodes},infinity).
+add(A,B)->
+    gen_server:call(?MODULE, {add,A,B},infinity).
 
-get_pods()->
-    gen_server:call(?MODULE, {get_pods},infinity).
-create_pod(Node,PodId)->
-    gen_server:call(?MODULE, {create_pod,Node,PodId},infinity).
-delete_pod(Node,PodId)->
-    gen_server:call(?MODULE, {delete_pod,Node,PodId},infinity).
-
-create_container(Pod,PodId,Service)->
-    gen_server:call(?MODULE, {create_container,Pod,PodId,Service},infinity).
-delete_container(Pod,PodId,Service)->
-    gen_server:call(?MODULE, {delete_container,Pod,PodId,Service},infinity).
 
 %%-----------------------------------------------------------------------
 
@@ -107,35 +85,16 @@ init([]) ->
 %%          {stop, Reason, State}            (aterminate/2 is called)
 %% --------------------------------------------------------------------
 
-handle_call({get_nodes}, _From, State) ->
-    Reply=rpc:call(node(),controller,get_nodes,[],5000),
+handle_call({add,A,B}, _From, State) ->
+     Reply=rpc:call(node(),adder,add,[A,B]),
     {reply, Reply, State};
 
-handle_call({get_pods}, _From, State) ->
-    Reply=rpc:call(node(),controller,get_pods,[],5000),
-    {reply, Reply, State};
-
-handle_call({create_pod,Pod,Service}, _From, State) ->
-    Reply=rpc:call(node(),controller,create_pod,[Pod,Service],15000),
-    {reply, Reply, State};
-
-handle_call({delete_pod,Pod,Service}, _From, State) ->
-    Reply=rpc:call(node(),controller,delete_pod,[Pod,Service],15000),
-    {reply, Reply, State};
-
-handle_call({create_container,Pod,PodId,Service}, _From, State) ->
-    Reply=rpc:call(node(),controller,create_container,[Pod,PodId,Service],15000),
-    {reply, Reply, State};
-
-handle_call({delete_container,Pod,PodId,Service}, _From, State) ->
-    Reply=rpc:call(node(),controller,delete_container,[Pod,PodId,Service],15000),
-    {reply, Reply, State};
 
 handle_call({stop}, _From, State) ->
     {stop, normal, shutdown_ok, State};
 
 handle_call(Request, From, State) ->
-    Reply = {unmatched_signal,?MODULE,?LINE,Request,From},
+    Reply = {unmatched_signal,?MODULE,Request,From},
     {reply, Reply, State}.
 
 %% --------------------------------------------------------------------
@@ -145,6 +104,8 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+
+
 
 handle_cast(Msg, State) ->
     io:format("unmatched match cast ~p~n",[{?MODULE,?LINE,Msg}]),
@@ -156,7 +117,7 @@ handle_cast(Msg, State) ->
 %% Returns: {noreply, State}          |
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
-
+%% --------------------------------------------------------------------
 handle_info(Info, State) ->
     io:format("unmatched match info ~p~n",[{?MODULE,?LINE,Info}]),
     {noreply, State}.
@@ -193,5 +154,8 @@ code_change(_OldVsn, State, _Extra) ->
 %% --------------------------------------------------------------------
 
 %% --------------------------------------------------------------------
-%% Internal functions
+%% Function: 
+%% Description:
+%% Returns: non
 %% --------------------------------------------------------------------
+

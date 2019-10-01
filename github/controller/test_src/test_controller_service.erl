@@ -28,7 +28,7 @@
 %% Returns: non
 %% --------------------------------------------------------------------
 init_test()->
-    rpc:call(list_to_atom("service_x@asus"),init,stop,[]),
+    rpc:call(list_to_atom("pod_1@asus"),init,stop,[]),
     rpc:call(?W1,os,cmd,["rm -rf "++"service_x"]),
     pong=net_adm:ping(?W1),
     pong=net_adm:ping(?W2),
@@ -61,17 +61,33 @@ t5_get_pods_test()->
     ok.
 
 t6_create_container_test()->
-    {ok,'service_x@asus'}=controller_service:create_pod(?W1,"service_x"),
-    pong=net_adm:ping('service_x@asus'),
-    PodId="service_x",
-    CpCmd="cp -r "++"brd_ctrl "++PodId,
-    rpc:call('service_x@asus',os,cmd,[CpCmd],5000),
-    true=rpc:call('service_x@asus',filelib,is_dir,[filename:join(PodId,"brd_ctrl")],5000),
+    Pod='pod_1@asus',
+    PodId="pod_1",
+    Service="adder_service",
+    {ok,Pod}=controller_service:create_pod(?W1,PodId),
+    pong=net_adm:ping(Pod),
+    {ok,Service}=controller_service:create_container(Pod,PodId,Service),
+    42=rpc:call(Pod,adder,add,[20,22],5000),
+    42=rpc:call(Pod,adder_service,add,[20,22],5000),
     ok.
 
-t7_delete_container_test()->
+t61_test()->
+      Pod='pod_1@asus',
+    42=rpc:call(Pod,adder,add,[20,22],5000),
+    42=rpc:call(Pod,adder_service,add,[20,22],5000),
+    ok.
     
-    {ok,stopped}=controller_service:delete_pod(?W1,"service_x"),
+
+t7_delete_container_test()->
+    Pod='pod_1@asus',
+    PodId="pod_1",
+    Service="adder_service",
+    ok=controller_service:delete_container(Pod,PodId,Service),
+    ok.
+
+t77_delete_container_test()->
+    PodId="pod_1",
+    {ok,stopped}=controller_service:delete_pod(?W1,PodId),
     ok.
 
 
