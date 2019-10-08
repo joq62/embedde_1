@@ -12,7 +12,9 @@
 %% --------------------------------------------------------------------
 
 %% --------------------------------------------------------------------
+%-define(HB_INTERVAL,1*60*1000).
 
+-define(HB_INTERVAL,1*30*1000).
 %% --------------------------------------------------------------------
 %% Key Data structures
 %% 
@@ -30,13 +32,17 @@
 -export([add_worker_node/2,delete_worker_node/2,
 	 add_master_node/2,delete_master_node/2,
 	 worker_nodes/0,master_nodes/0,
+	 worker_nodes_time/0,master_nodes_time/0,
 
 	 add_worker_pod/2,delete_worker_pod/2,
 	 add_master_pod/2,delete_master_pod/2,
 	 worker_pods/0,master_pods/0,
+	 worker_pods_time/0,master_pods_time/0,
 
-	 add_service/2,delete_service/2,services/0,service/1,services_time/0,service_time/1
-
+	 register_service/2,delete_service/2,
+	 services/0,service/1,services_time/0,service_time/1,
+	 
+	 heart_beat/1
 	]).
 
 -export([start/0,
@@ -76,19 +82,25 @@ worker_nodes()->
     gen_server:call(?MODULE, {worker_nodes},infinity).
 master_nodes()->
     gen_server:call(?MODULE, {master_nodes},infinity).
+worker_nodes_time()->
+    gen_server:call(?MODULE, {worker_nodes_time},infinity).
+master_nodes_time()->
+    gen_server:call(?MODULE, {master_nodes_time},infinity).
 
 worker_pods()->
     gen_server:call(?MODULE, {worker_pods},infinity).
 master_pods()->
     gen_server:call(?MODULE, {master_pods},infinity).
-
-
+worker_pods_time()->
+    gen_server:call(?MODULE, {worker_pods_time},infinity).
+master_pods_time()->
+    gen_server:call(?MODULE, {master_pods_time},infinity).
 
 
 
 %%-----------------------------------------------------------------------
-add_service(ServiceId,Pod)->
-    gen_server:cast(?MODULE, {add_service,ServiceId,Pod}).
+register_service(ServiceId,Pod)->
+    gen_server:cast(?MODULE, {register_service,ServiceId,Pod}).
 delete_service(ServiceId,Pod)->
     gen_server:cast(?MODULE, {delete_service,ServiceId,Pod}).
 
@@ -113,6 +125,10 @@ add_master_pod(MasterPodId,MasterPod)->
 delete_master_pod(MasterPodId,MasterPod)->
     gen_server:cast(?MODULE, {delete_master_pod,MasterPodId,MasterPod}).
 
+heart_beat(Interval)->
+    gen_server:cast(?MODULE, {heart_beat,Interval}).
+
+
 %% ====================================================================
 %% Server functions
 %% ====================================================================
@@ -127,6 +143,8 @@ delete_master_pod(MasterPodId,MasterPod)->
 %
 %% --------------------------------------------------------------------
 init([]) ->
+    spawn(fun()->h_beat(?HB_INTERVAL) end),
+    io:format("Dbg ~p~n",[{?MODULE, application_started}]),
     {ok, #state{worker_nodes=[],master_nodes=[],
 		worker_pods=[],master_pods=[],
 		services=[]
@@ -194,17 +212,74 @@ handle_call({service_time,ServiceId}, _From, State) ->
 		  {error,[unknown_error,Err,?MODULE,?LINE]}
 	  end,   
     {reply, Reply, State};
+
+%%----------------------------------- 
 handle_call({worker_nodes}, _From, State) ->
+    Reply=case rpc:call(node(),sd,worker_nodes,[State#state.worker_nodes],5000) of
+	      {ok,AvailableNodes}->
+		  AvailableNodes;
+	      {badrpc,Err}->
+						% call logger error
+		  {error,[badrpc,Err,?MODULE,?LINE]};
+	      Err->
+						% call logger error
+		  {error,[unknown_error,Err,?MODULE,?LINE]}
+	  end,   
+    {reply, Reply, State};
+
+handle_call({worker_nodes_time}, _From, State) ->
     Reply=State#state.worker_nodes,
     {reply, Reply, State};
+
 handle_call({master_nodes}, _From, State) ->
+    Reply=case rpc:call(node(),sd,master_nodes,[State#state.master_nodes],5000) of
+	      {ok,AvailableNodes}->
+		  AvailableNodes;
+	      {badrpc,Err}->
+						% call logger error
+		  {error,[badrpc,Err,?MODULE,?LINE]};
+	      Err->
+						% call logger error
+		  {error,[unknown_error,Err,?MODULE,?LINE]}
+	  end,   
+    {reply, Reply, State};
+
+handle_call({master_nodes_time}, _From, State) ->
     Reply=State#state.master_nodes,
     {reply, Reply, State};
 
+%-------------------------------------------------------
 handle_call({worker_pods}, _From, State) ->
+ Reply=case rpc:call(node(),sd,worker_pods,[State#state.worker_pods],5000) of
+	      {ok,AvailablePods}->
+		  AvailablePods;
+	      {badrpc,Err}->
+						% call logger error
+		  {error,[badrpc,Err,?MODULE,?LINE]};
+	      Err->
+						% call logger error
+		  {error,[unknown_error,Err,?MODULE,?LINE]}
+	  end,   
+    {reply, Reply, State};
+
+handle_call({worker_pods_time}, _From, State) ->
     Reply=State#state.worker_pods,
     {reply, Reply, State};
+
 handle_call({master_pods}, _From, State) ->
+ Reply=case rpc:call(node(),sd,master_pods,[State#state.master_pods],5000) of
+	      {ok,AvailablePods}->
+		  AvailablePods;
+	      {badrpc,Err}->
+						% call logger error
+		  {error,[badrpc,Err,?MODULE,?LINE]};
+	      Err->
+						% call logger error
+		  {error,[unknown_error,Err,?MODULE,?LINE]}
+	  end,   
+    {reply, Reply, State};
+
+handle_call({master_pods_time}, _From, State) ->
     Reply=State#state.master_pods,
     {reply, Reply, State};
 
@@ -214,7 +289,7 @@ handle_call({stop}, _From, State) ->
     {stop, normal, shutdown_ok, State};
 
 handle_call(Request, From, State) ->
-    Reply = {unmatched_signal,?MODULE,Request,From},
+    Reply = {error,[unmatched_signal,Request,From,?MODULE,?LINE]},
     {reply, Reply, State}.
 
 %% --------------------------------------------------------------------
@@ -224,8 +299,8 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_cast( {add_service,ServiceId,Pod}, State) ->
-    case rpc:call(node(),sd,add_service,[ServiceId,Pod,State#state.services],5000) of
+handle_cast( {register_service,ServiceId,Pod}, State) ->
+    case rpc:call(node(),sd,register_service,[ServiceId,Pod,State#state.services],5000) of
 	{ok,NewServices}->
 	    NewState=State#state{services=NewServices};
 	{badrpc,_Err}->
@@ -360,7 +435,21 @@ handle_cast( {delete_master_pod,MasterPodId,MasterPod}, State) ->
     end,    
     {noreply, NewState};
 
+%%-----------------------------------------------------------------------
 
+handle_cast({heart_beat,Interval}, State) ->
+    UpdatedWorkerNodes=rpc:call(node(),sd,update_sd_list,[State#state.worker_nodes],5000),
+    UpdatedMasterNodes=rpc:call(node(),sd,update_sd_list,[State#state.master_nodes],5000),
+
+    UpdatedWorkerPods=rpc:call(node(),sd,update_sd_list,[State#state.worker_pods],5000),
+    UpdatedMasterPods=rpc:call(node(),sd,update_sd_list,[State#state.master_pods],5000),
+
+    UpdatedServices=rpc:call(node(),sd,update_sd_list,[State#state.services],5000),
+    NewState=State#state{worker_nodes=UpdatedWorkerNodes,master_nodes=UpdatedMasterNodes,
+			 worker_pods=UpdatedWorkerPods,master_pods=UpdatedMasterPods,
+			 services=UpdatedServices},
+    spawn(fun()->h_beat(Interval) end),    
+    {noreply, NewState};
 
 
 handle_cast(Msg, State) ->
@@ -398,6 +487,11 @@ code_change(_OldVsn, State, _Extra) ->
 %% --------------------------------------------------------------------
 %%% Internal functions
 %% --------------------------------------------------------------------
+h_beat(Interval)->
+    timer:sleep(Interval),
+    rpc:cast(node(),?MODULE,heart_beat,[Interval]).
+	     
+
 %% --------------------------------------------------------------------
 %% Function: 
 %% Description:
