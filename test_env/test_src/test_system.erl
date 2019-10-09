@@ -84,8 +84,27 @@ check_sd_controller()->
     R31=rpc:call(Pod,sd_service,worker_nodes,[]),
     R4=rpc:call(Pod,sd_service,services,[]),
     R41=rpc:call(Pod,application,loaded_applications,[]),
+  %  [["node_worker1@asus",tellstick]]=node_config:capability(tellstick),
+    ok=test_config(Pod),
  %   R10=stop_pods:start(),
 %    io:format("cleanup=, start_controller_node= ~p~n",[{?MODULE,?LINE,R1,R2}]),
     io:format("time=~p~nnodes=~p~nmaster_pods=~p~nmaster_nodes=~p~nworker_pods=~p~nworker_nodes=~p~nservices=~p~nloaded_apps=~p~n",[time(),R1,R2,R21,R3,R31,R4,R41]),
     timer:sleep(2000),
     check_sd_controller().
+
+test_config(Pod)->
+        % zone all
+    {ok,[{"node_worker3@asus","varmdeo.main.room2"},
+	 {"node_worker1@asus","sthlm.lgh.room1"},
+	 {"node_worker2@asus","sthlm.lgh.room2"},
+	 {"node_controller1@asus","sthlm.lgh.room2"}]}=rpc:call(Pod,controller_service,zone,[]),
+    % zone specific
+    {ok,"varmdeo.main.room2"}=rpc:call(Pod,controller_service,zone,['node_worker3@asus']),
+    
+    % Capability 
+
+    {ok,[{"node_worker1@asus",tellstick},
+	 {"node_worker3@asus",tellstick}]}=rpc:call(Pod,controller_service,capability,[tellstick]),
+    {ok,[{"node_worker1@asus",disk}]}=rpc:call(Pod,controller_service,capability,[disk]),
+    {ok,[]}=rpc:call(Pod,controller_service,capability,[glurk]),
+    ok.

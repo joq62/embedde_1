@@ -18,7 +18,9 @@
 %% Key Data structures
 %% 
 %% --------------------------------------------------------------------
--record(state,{}).
+-record(state,{nodes}).
+
+-define(NODES_CONFIG,"nodes.config").
 
 % {{service,Service},{pid,PidService},{node_board,NB},{node_service,NS}}
 
@@ -38,7 +40,8 @@
 %% intermodule 
 -export([get_nodes/0,
 	 create_pod/2,delete_pod/2,get_pods/0,
-	 create_container/3,delete_container/3
+	 create_container/3,delete_container/3,
+	 zone/0,zone/1,capability/1
 	]).
 
 -export([start/0,
@@ -61,7 +64,15 @@ start()-> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 stop()-> gen_server:call(?MODULE, {stop},infinity).
 
 
-%%-----------------------------------------------------------------------
+%%----------------------------------------------------------------------
+zone()->
+    gen_server:call(?MODULE,{zone},infinity).
+
+zone(Node)->
+    gen_server:call(?MODULE,{zone,Node},infinity).
+
+capability(Capability)->
+    gen_server:call(?MODULE,{capability,Capability},infinity).
 get_nodes()->
     gen_server:call(?MODULE, {get_nodes},infinity).
 
@@ -94,6 +105,7 @@ delete_container(Pod,PodId,Service)->
 %
 %% --------------------------------------------------------------------
 init([]) ->
+    true=node_config:init(?NODES_CONFIG),
     io:format("Dbg ~p~n",[{?MODULE, application_started}]),
     {ok, #state{}}.   
     
@@ -107,7 +119,26 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (aterminate/2 is called)
 %% --------------------------------------------------------------------
+handle_call({zone}, _From, State) ->
+    Reply=rpc:call(node(),node_config,zone,[],5000), 
+    {reply, Reply, State};
 
+handle_call({zone,Node}, _From, State) ->
+    Reply=rpc:call(node(),node_config,zone,[atom_to_list(Node)],5000),
+    {reply, Reply, State};
+
+handle_call({capability,Capability}, _From, State) ->
+    Reply=case rpc:call(node(),node_config,capability,[Capability],5000) of
+	      []->
+		  {ok,[]};
+	      {ok,Capabilities}->
+		  {ok,Capabilities};
+	      Err->
+		  {error,[Err,?MODULE,?LINE]}
+	  end,
+    {reply, Reply, State};
+
+%----------------------------------------------------------------------
 handle_call({get_nodes}, _From, State) ->
     Reply=rpc:call(node(),controller,get_nodes,[],5000),
     {reply, Reply, State};

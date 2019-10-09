@@ -57,10 +57,6 @@ start()->
     {ok,Pod}=test_controller:create_pod(Node,PodId),
     {ok,"controller_service"}=test_controller:create_container(Pod,PodId,"controller_service"),
     {ok,"sd_service"}=test_controller:create_container(Pod,PodId,"sd_service"),
-
-    
-
-
     ok.
    
 
