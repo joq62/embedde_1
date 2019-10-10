@@ -18,9 +18,11 @@
 %% Key Data structures
 %% 
 %% --------------------------------------------------------------------
--record(state,{nodes}).
+-record(state,{nodes,wanted_state_nodes,wanted_state_services}).
 
 -define(NODES_CONFIG,"nodes.config").
+-define(NODES_SIMPLE_CONFIG,"nodes_simple.config").
+-define(JOSCA,"josca").
 
 % {{service,Service},{pid,PidService},{node_board,NB},{node_service,NS}}
 
@@ -41,7 +43,8 @@
 -export([get_nodes/0,
 	 create_pod/2,delete_pod/2,get_pods/0,
 	 create_container/3,delete_container/3,
-	 zone/0,zone/1,capability/1
+	 zone/0,zone/1,capability/1,
+	 wanted_state_nodes/0,wanted_state_services/0
 	]).
 
 -export([start/0,
@@ -65,6 +68,11 @@ stop()-> gen_server:call(?MODULE, {stop},infinity).
 
 
 %%----------------------------------------------------------------------
+wanted_state_nodes()->
+    gen_server:call(?MODULE,{wanted_state_nodes},infinity).
+wanted_state_services()->
+    gen_server:call(?MODULE,{wanted_state_services},infinity).
+
 zone()->
     gen_server:call(?MODULE,{zone},infinity).
 
@@ -106,8 +114,11 @@ delete_container(Pod,PodId,Service)->
 %% --------------------------------------------------------------------
 init([]) ->
     true=node_config:init(?NODES_CONFIG),
+    WantedStateNodes=node_config:wanted_state_nodes(?NODES_SIMPLE_CONFIG),
+    WantedStateServices=node_config:wanted_state_services(?JOSCA),
     io:format("Dbg ~p~n",[{?MODULE, application_started}]),
-    {ok, #state{}}.   
+    {ok, #state{wanted_state_nodes=WantedStateNodes,
+	       wanted_state_services=WantedStateServices}}.   
     
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -119,6 +130,15 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (aterminate/2 is called)
 %% --------------------------------------------------------------------
+handle_call({wanted_state_nodes}, _From, State) ->
+    Reply=State#state.wanted_state_nodes, 
+    {reply, Reply, State};
+
+handle_call({wanted_state_services}, _From, State) ->
+    Reply=rpc:call(node(),node_config,wanted_state_services,[?JOSCA]), 
+    {reply, Reply, State};
+
+%---------------------------------------------------------------
 handle_call({zone}, _From, State) ->
     Reply=rpc:call(node(),node_config,zone,[],5000), 
     {reply, Reply, State};

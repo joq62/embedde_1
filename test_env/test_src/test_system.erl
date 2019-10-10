@@ -84,11 +84,13 @@ check_sd_controller()->
     R31=rpc:call(Pod,sd_service,worker_nodes,[]),
     R4=rpc:call(Pod,sd_service,services,[]),
     R41=rpc:call(Pod,application,loaded_applications,[]),
+    R5=rpc:call(Pod,controller_service,wanted_state_nodes,[]),
+    R51=rpc:call(Pod,controller_service,wanted_state_services,[]),
   %  [["node_worker1@asus",tellstick]]=node_config:capability(tellstick),
-    ok=test_config(Pod),
+   % ok=test_config(Pod),
  %   R10=stop_pods:start(),
 %    io:format("cleanup=, start_controller_node= ~p~n",[{?MODULE,?LINE,R1,R2}]),
-    io:format("time=~p~nnodes=~p~nmaster_pods=~p~nmaster_nodes=~p~nworker_pods=~p~nworker_nodes=~p~nservices=~p~nloaded_apps=~p~n",[time(),R1,R2,R21,R3,R31,R4,R41]),
+    io:format("time=~p~nnodes=~p~nmaster_pods=~p~nmaster_nodes=~p~nworker_pods=~p~nworker_nodes=~p~nservices=~p~nloaded_apps=~p~nwanted_state_nodes=~p~nwanted_state_services=~p~n",[time(),R1,R2,R21,R3,R31,R4,R41,R5,R51]),
     timer:sleep(2000),
     check_sd_controller().
 

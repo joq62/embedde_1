@@ -18,6 +18,7 @@
 
 
 -export([init/1,delete/0,
+	 wanted_state_nodes/1,wanted_state_services/1,
 	 create_ets_list/2,
 	 zone/0,zone/1,capability/1
 	]).
@@ -26,13 +27,49 @@
 %% ====================================================================
 %% External functions
 %% ====================================================================
-
 %% --------------------------------------------------------------------
 %% Function: 
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
 
+wanted_state_nodes(ConfigFile)->
+    Result = case file:consult(ConfigFile) of
+		 {ok,I}->
+		     [{NodeStr,list_to_atom(NodeStr)}||NodeStr<-I];
+		 {error,Err}->
+		     {error,[Err,ConfigFile,?MODULE,?LINE]}
+	     end,
+    Result.
+
+wanted_state_services(JoscaDir)->
+    
+    Result = case file:list_dir(JoscaDir) of
+		 {ok,Files}->
+		     read_josca(Files,JoscaDir,[]);
+		 {error,Err}->
+		     {error,[Err,JoscaDir,?MODULE,?LINE]}
+	     end,
+    Result.
+
+read_josca([],_JoscaDir,WantedStateServices)->
+    WantedStateServices;
+read_josca([File|T],JoscaDir,Acc)->
+    {ok,I}=file:consult(filename:join(JoscaDir,File)),
+ %   {application_id,AppId}=lists:keyfind(application_id,1,I),
+ %   {vsn,Vsn}=lists:keyfind(vsn,1,I),
+    {services,ServiceSpecs}=lists:keyfind(services,1,I),
+    ServiceList=[{Service,Num,NodeStr}||{{service,Service},{num_instances,Num},{node_str,NodeStr}}<-ServiceSpecs],
+    NewAcc=lists:append(ServiceList,Acc),
+    read_josca(T,JoscaDir,NewAcc).
+    
+    
+
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
 init(ConfigFile)->
     Result = case file:consult(ConfigFile) of
 		 {ok,I}->

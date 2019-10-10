@@ -50,7 +50,7 @@
 %
 %% --------------------------------------------------------------------
 start()->
-    
+    os:cmd("cp -r /home/pi/erlang/erlang_embedded_system_1/github/josca /home/pi/erlang/erlang_embedded_system_1/test_env/board_ctrl"),
     {ok,Host}=inet:gethostname(),
     Node=list_to_atom(?NODE_CONTROLLER_ID++"@"++Host),
     PodId="pod_controller",
