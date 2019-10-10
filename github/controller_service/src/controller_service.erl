@@ -131,6 +131,7 @@ init([]) ->
 %%          {stop, Reason, State}            (aterminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({wanted_state_nodes}, _From, State) ->
+    Reply=rpc:call(node(),node_config,wanted_state_nodes,[?NODES_SIMPLE_CONFIG]),
     Reply=State#state.wanted_state_nodes, 
     {reply, Reply, State};
 
